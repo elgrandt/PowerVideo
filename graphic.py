@@ -3,6 +3,8 @@ __author__ = 'newtonis'
 import pygame
 import datetime
 import config
+import moving_bar
+import input
 
 pygame.init()
 
@@ -250,6 +252,12 @@ tickimageB   = pygame.image.load("imagenes/tick2.png")
 boton_image  = pygame.image.load("imagenes/boton.png")
 boton_image_hover  = pygame.image.load("imagenes/boton1.png")
 
+cajahorarios = pygame.image.load("imagenes/cajahorarios.png")
+cajahorarios2= pygame.image.load("imagenes/cajarhorarios2.png")
+
+cruz         = pygame.image.load("imagenes/cruz.png")
+cruz2        = pygame.image.load("imagenes/cruz2.png")
+
 redcover.fill((231, 17, 0))
 
 surface_alpha = pygame.surface.Surface(screen.get_size())
@@ -280,16 +288,42 @@ lastabort   = False
 nowabort    = False
 surfacetime = 0
 corrimiento = 0
+fullscreen  = False
 
 #message
 loading_message = False
 message_structure = None
 
 #config
-tickFiltroHorario = tick_select("Activar filtro horario",100,100,config.activar_filtro_horario)
+tickFiltroHorario = tick_select("Activar filtro horario",100,100,not config.activar_filtro_horario)
 flechaid          = Flechaid_icon(screen.get_size()[0]-image_config.get_size()[0]-10,10)
 
+textousuariotarget = ka1.render("Usario target de tweets",1,(0,0,0))
+inputtext          = input.text_input()
+inputtext.allowLetters()
+inputtext.allowNumbers()
+inputtext.set_show_text(config.usuario)
+inputtext.set_position((100,230))
+inputtext.set_background((255,255,255))
+inputtext.set_text_color((0,0,0))
+inputtext.set_alpha_states(0.5,1)
+inputtext.set_font(ka1)
+inputtext.set_initial_font(ka1)
+inputtext.set_dimensions((360,30))
 
+imagenmargencargar = ka1.render("Margen de carga de videos - seg",1,(0,0,0))
+margencargartext = input.text_input()
+margencargartext.allowNumbers()
+margencargartext.set_show_text(str(config.margen_cargar))
+margencargartext.set_position((100,300))
+margencargartext.set_background((255,255,255))
+margencargartext.set_alpha_states(0.5,1)
+margencargartext.set_font(ka1)
+margencargartext.set_initial_font(ka1)
+margencargartext.set_dimensions((360,30))
+
+#events
+keyspressed = None
 
 def generate_surface_area(title):
     mysurface = flecha.copy()
@@ -329,6 +363,7 @@ def update():
     diamond = False
 
     global estado
+    global screen
     screen.fill((255,255,255))
 
     if estado == PRESENTACION_ORT:
@@ -414,13 +449,25 @@ def update():
         if event.type == pygame.QUIT:
             global end_value
             end_value = True
-
+    global keyspressed
+    keyspressed = pygame.key.get_pressed()
+    if keyspressed[pygame.K_ESCAPE]:
+        global end_value
+        end_value = True
+    if keyspressed[pygame.K_F11]:
+        global fullscreen
+        fullscreen = not fullscreen
+        if fullscreen:
+            screen = pygame.display.set_mode((800,600))
+        else:
+             screen = pygame.display.set_mode((800,600),pygame.FULLSCREEN)
     if not diamond:
         pygame.mouse.set_cursor(*pygame.cursors.arrow)
     else:
         pygame.mouse.set_cursor(*pygame.cursors.diamond)
     if message_structure:
         message_structure.update()
+        message_structure.show()
     pygame.display.update()
 
 ### START CALLBACK FUNCTIONS ###
@@ -531,50 +578,301 @@ class boton:
         self.x = 0
         self.y = 0
         self.text = text
-        self.surface = boton_image
         self.render = ka1.render(text,1,(0,0,0))
+        self.surface = pygame.transform.scale(boton_image,(self.render.get_size()[0]+10, boton_image.get_size()[1]))
+        self.hover_surface = pygame.transform.scale(boton_image_hover,(self.render.get_size()[0]+10, boton_image_hover.get_size()[1]))
+        self.final_surface = self.surface
     def set_x(self, X):
         self.x = X
     def set_y(self, Y):
         self.y = Y
     def update(self, mouse_x, mouse_y, pressed):
+        self.final_surface = self.surface
         if self.focused(mouse_x,mouse_y):
-            self.surface = boton_image_hover
+            self.final_surface = self.hover_surface
         if self.clicked(mouse_x,mouse_y,pressed):
             self.render = ka1.render(self.text,1,(0,0,255))
-        fina_surface = self.surface
-        final_surface.blit(self.render,(self.surface.get_size()[0]/2-self.render.get_size()[0]/2,self.surface.get_size()[1]/2-self.render.get_size()[1]/2));
+        else:
+            self.render = ka1.render(self.text,1,(0,0,0))
+        self.final_surface.blit(self.render,(self.surface.get_size()[0]/2-self.render.get_size()[0]/2,self.surface.get_size()[1]/2-self.render.get_size()[1]/2));
+    def update_graphic(self,dif_x,pantalla=-100):
+        if pantalla == -100:
+            screen.blit(self.get_surface(),(self.x+dif_x,self.y))
+        else:
+            pantalla.blit(self.get_surface(),(self.x+dif_x,self.y))
     def focused(self, x, y):
         w,h = self.surface.get_size()
-        return (x > self.x) and (y > self.y) and (x < self.x+w) and (x < self.y+h)
+        return (x > self.x) and (y > self.y) and (x < self.x+w) and (y < self.y+h)
     def clicked(self,x,y,pressed):
-        return self.focused(x,y,pressed) and pressed
+        return self.focused(x,y) and pressed
     def get_surface(self):
-        return self.surface;
+        return self.final_surface;
+
+class Cruz:
+    def __init__(self,x,y):
+        self.x = x
+        self.y = y
+        self.w , self.h = cruz.get_size()
+        self.focused = False
+        self.pressed = False
+    def draw(self):
+        if self.focused:
+            screen.blit(cruz2,(self.x,self.y))
+            global diamond
+            diamond = True
+        else:
+            screen.blit(cruz,(self.x,self.y))
+    def update(self,pressed,mousex,mousey):
+        if mousex > self.x and mousex < self.x + self.w and mousey > self.y and mousey < self.y + self.h:
+            self.focused = True
+            if pressed:
+                self.pressed = True
+            else:
+                self.pressed = False
+        else:
+            self.pressed = False
+            self.focused = False
+
+
+                
+                
+class Configurador_de_horarios:
+    def __init__(self):
+        self.horarios = []
+        global screen
+        self.test_render = display007.render("Test",1,(0,0,0))
+        self.baralgo           = moving_bar.moving_bar()
+        self.tamanio_total = 10
+        self.edit_button =ka1.render("Editar",1,(0,0,255))
+        self.guardar =ka1.render("Guardar",1,(0,255,255))
+        self.edit_positions = []
+        self.editing = 9999
+        self.inputs = []
+        self.cruz   = Cruz(640,100)
+        self.pos_guardar = [0,0]
+        self.boton_crear = boton("Nuevo horario")
+        self.fondo_size = (screen.get_size()[0]-200,screen.get_size()[1]-200)
+        self.zona_horarios_size = (self.fondo_size[0]-20,self.fondo_size[1]-100)
+        for x in range(4):
+            self.inputs.append([input.text_input(),[0,0]])
+            self.inputs[x][0].set_alpha_states(0.5,1)
+            self.inputs[x][0].allowNumbers()
+            self.inputs[x][0].set_dimensions((37,30)) # TE PARECE?proba
+            self.inputs[x][0].set_background((255,255,255))
+            self.inputs[x][0].set_show_text("")
+    def update(self,mouse_x,mouse_y,pressed):
+        mx = mouse_x-110
+        my = mouse_y-130
+        self.horarios = []
+        global keyspressed
+        y_act = 5
+        for act in config.horarios_disponibles:
+            From = [str(act[0][0]),str(act[0][1])]
+            To = [str(act[1][0]),str(act[1][1])]
+            for n in range(2):
+                if len(From[n]) < 2:
+                    From[n] = "0"+From[n]
+                if len(To[n]) < 2:
+                    To[n] = "0"+To[n]
+            self.horarios.append(["Desde "+From[0]+":"+From[1]+" hasta "+To[0]+":"+To[1],[5,y_act]])
+            y_act += self.test_render.get_size()[1]+5
+        self.baralgo.logic_update(pressed,mx,my)
+        self.tamanio_total = y_act - 5
+        for x in range(len(self.edit_positions)):
+            n = self.edit_positions[x]
+            #if n[0] > 0:
+            w,h = self.edit_button.get_size()
+            if mx > n[0] and mx < n[0]+w and my > n[1] and my < n[1]+h:
+                if pressed and self.editing != x:
+                    self.editing = x
+        self.cruz.update(pressed,mouse_x,mouse_y)
+        if self.editing != 9999:
+            for x in range(len(self.inputs)):
+                self.inputs[x][0].logic_update(pressed,mx,my,keyspressed)
+            if mx > self.pos_guardar[0] and mx < self.pos_guardar[0]+self.guardar.get_size()[0] and my > self.pos_guardar[1] and my < self.pos_guardar[1]+self.guardar.get_size()[1]:
+                permitido = True
+                for x in range(4):
+                    if self.inputs[x][0].get_curent_text() == "":
+                        permitido = False
+                if pressed and permitido:
+                    self.cruz.pressed = True
+                    config.horarios_disponibles[self.editing] = ((int(self.inputs[0][0].get_curent_text()),int(self.inputs[1][0].get_curent_text())),(int(self.inputs[2][0].get_curent_text()),int(self.inputs[3][0].get_curent_text())))
+                    update_horarios(config.horarios_disponibles)
+        self.boton_crear.set_x(self.fondo_size[0]/2-self.boton_crear.final_surface.get_size()[0]/2)
+        self.boton_crear.set_y(30+self.zona_horarios_size[1]+10)
+        mx += 10
+        my += 30
+        self.boton_crear.update(mx,my,pressed)
+        if self.boton_crear.clicked(mx,my,pressed):
+            perm = True
+            for x in config.horarios_disponibles:
+                if x == ((0,0),(0,0)):
+                    perm = False
+            if perm:
+                config.horarios_disponibles.append(((0,0),(0,0)))
+            update_horarios(config.horarios_disponibles)
+    def quit(self):
+        return self.cruz.pressed
+    def update_graphics(self):
+        global screen
+        fondo = pygame.transform.scale(cajahorarios,self.fondo_size)
+        zona_horarios = pygame.transform.scale(cajahorarios2,self.zona_horarios_size)
+        self.baralgo.set_dimensions([15,zona_horarios.get_size()[1]-10])
+        self.baralgo.set_background((255,255,255))
+        self.baralgo.set_position([zona_horarios.get_size()[0]-self.baralgo.W-10,5])
+
+        self.baralgo.set_scale(float(zona_horarios.get_size()[1])/float(self.tamanio_total))
+        self.edit_positions = []
+        for x in range(len(self.horarios)):
+            act = self.horarios[x]
+            render = display007.render(act[0],1,(0,0,0))
+            coeficiente = self.baralgo.get_position()
+            max_distancia = len(self.horarios)*(self.test_render.get_size()[0]+5) + 5
+            y_corrida    = max_distancia * coeficiente
+            pos_act = [act[1][0],act[1][1]-y_corrida]
+            if x != self.editing:
+                zona_horarios.blit(render,pos_act)
+                pos_editar = (pos_act[0]+render.get_size()[0]+5,pos_act[1]+(render.get_size()[1]/2-self.edit_button.get_size()[1]/2))
+                zona_horarios.blit(self.edit_button,pos_editar)
+                self.edit_positions.append(pos_editar)
+            else:
+                self.edit_positions.append([0,0])
+                render_desde = display007.render("Desde",1,(0,0,0))
+                render_dos_puntos = display007.render(":",1,(0,0,0))
+                render_hasta = display007.render("hasta",1,(0,0,0))
+                size_input = [self.inputs[0][0].W,self.inputs[0][0].H]
+                sp = 5
+                self.inputs[0][1] = pos_act
+                self.inputs[1][1] = [pos_act[0]+render_desde.get_size()[0]+sp+size_input[0]+sp, pos_act[1]]
+                self.inputs[2][1] = [pos_act[0]+render_desde.get_size()[0]+sp+size_input[0]+sp+render_dos_puntos.get_size()[0]+sp+size_input[0]+sp, pos_act[1]]
+                self.inputs[3][1] = [pos_act[0]+render_desde.get_size()[0]+sp+size_input[0]+sp+render_dos_puntos.get_size()[0]+sp+size_input[0]+sp+render_desde.get_size()[0]+sp+size_input[0]+sp, pos_act[1]]
+                zona_horarios.blit(render_desde, self.inputs[0][1])
+                self.inputs[0][1][0] += render_desde.get_size()[0]+sp+3
+                zona_horarios.blit(render_dos_puntos, self.inputs[1][1])
+                self.inputs[1][1][0] += render_dos_puntos.get_size()[0]
+                zona_horarios.blit(render_hasta, self.inputs[2][1])
+                self.inputs[2][1][0] += render_hasta.get_size()[0]+sp
+                zona_horarios.blit(render_dos_puntos, self.inputs[3][1])
+                self.inputs[3][1][0] += render_dos_puntos.get_size()[0]
+                self.pos_guardar = [self.inputs[3][1][0]+self.inputs[3][0].W+5, self.inputs[3][1][1]+(self.inputs[3][0].H/2-self.guardar.get_size()[1]/2)]
+                zona_horarios.blit(self.guardar,self.pos_guardar)
+
+        self.baralgo.graphic_update(zona_horarios)
+
+        self.cruz.draw()
+        for x in range(len(self.inputs)):
+            self.inputs[x][0].set_position(self.inputs[x][1])
+            self.inputs[x][0].graphic_update(zona_horarios,0)
+
+        self.boton_crear.update_graphic(0,fondo)
+
+        fondo.blit(zona_horarios,(10,30))
+        screen.blit(fondo,(100,100))
+    def get_finished(self):
+        return False
+
+def update_horarios( horarios ):
+    lines = open("config.py", 'r').readlines()
+    while len(lines) > 20:
+        del lines[20]
+
+    lines.append('horarios_disponibles = [ \n')
+    for x in range(len(horarios)):
+        lines.append("( ("+str(horarios[x][0][0])+" ,"+str(horarios[x][0][1])+") , ("+str(horarios[x][1][0])+","+str(horarios[x][1][1])+") ),"+ "\n")
+    lines.append("]")
+    out = open("config.py", 'w')
+    out.writelines(lines)
+    out.close()
+
+boton_horarios_admitidos = boton("Horarios admitidos")
+boton_horarios_admitidos.set_x(100)
+boton_horarios_admitidos.set_y(150)
+
+viendo_horarios = False
+
+configurador_de_horarios = Configurador_de_horarios()
 
 def configuracion():
     #------ ACTUALIZAR RELOJ ------#
     screen.blit(get_time_surface() , (70,20))
     global corrimiento
-    
+    global screen
+    global viendo_horarios
+    global configurador_de_horarios
+
     #------ OBTENER DATOS DE PRESIONADO Y POSICION DE MOUSE ------#
     pressed = pygame.mouse.get_pressed()[0]
     mousex, mousey = pygame.mouse.get_pos()
 
-    ###  HABILITAR HORARIOS  ###
-    tickFiltroHorario.update(pressed,mousex,mousey)
-    tickFiltroHorario.draw(800-corrimiento)
-    if tickFiltroHorario.newstate() != -1:
-        replace_line("config.py",6,"activar_filtro_horario = " + str(tickFiltroHorario.ticked) +"\n")
-        show_message_loading("Actualizado conf.py")
-        config.activar_filtro_horario = not tickFiltroHorario.ticked
-    flechaid.update(pressed,mousex,mousey)
-    flechaid.draw(800-corrimiento)
-    ###  HABILITAR HORARIOS  ###
+    """  GRAPHIC UPDATES  """
+    screen.blit(textousuariotarget,(100+800-corrimiento,200))
+    screen.blit(imagenmargencargar,(100+800-corrimiento,270))
+
+    margencargartext.graphic_update(screen,800-corrimiento)
+    inputtext.graphic_update(screen,800-corrimiento)
 
     ###  VER HORARIOS ADMITIDOS  ###
-    #boton_horarios_admitidos = boton()
+    boton_horarios_admitidos.update_graphic(800-corrimiento)
     ###  VER HORARIOS ADMITIDOS  ###
+    ###  CONFIGURADOR DE HORARIOS  ###
+    if viendo_horarios:
+        configurador_de_horarios.update_graphics()
+    ###  CONFIGURADOR DE HORARIOS  ###
+
+
+    """  LOGIC UPDATES  """
+    if not viendo_horarios:
+        ###  HABILITAR HORARIOS  ###
+        tickFiltroHorario.draw(800-corrimiento)
+        ###  HABILITAR HORARIOS  ###
+        ###  FLECHA ID  ###
+        flechaid.draw(800-corrimiento)
+        ###  FLECHA ID  ###
+
+        ###  HABILITAR HORARIOS  ###
+        tickFiltroHorario.update(pressed,mousex,mousey)
+        if tickFiltroHorario.newstate() != -1:
+            replace_line("config.py",6,"activar_filtro_horario = " + str(tickFiltroHorario.ticked) +"\n")
+        config.activar_filtro_horario = not tickFiltroHorario.ticked
+        ###  HABILITAR HORARIOS  ###
+        ###  FLECHA ID  ###
+        flechaid.update(pressed,mousex,mousey)
+        ###  FLECHA ID  ###
+        ###  VER HORARIOS ADMITIDOS  ###
+        boton_horarios_admitidos.update(mousex,mousey,pressed)
+        if boton_horarios_admitidos.clicked(mousex,mousey,pressed):
+            viendo_horarios = True
+            configurador_de_horarios = Configurador_de_horarios()
+        ###  VER HORARIOS ADMITIDOS  ###
+
+        ### INPUT USUARIO TARGET ###
+
+        global keyspressed
+        if keyspressed:
+            inputtext.logic_update(pressed,mousex,mousey,keyspressed)
+            newtext = inputtext.get_new_text()
+            if newtext != -1:
+                replace_line("config.py",16,'usuario               = "'+ newtext +'" '+'\n')
+                show_message_loading("Reseteo necesario")
+
+        ### MARGEN PARA CARGAR ###
+
+        if keyspressed:
+            margencargartext.logic_update(pressed,mousex,mousey,keyspressed)
+             # CHE ONE LOS GRAPHIC ARRIBA        usa chat floobits
+            newtext = margencargartext.get_new_text()
+            if newtext != -1 and newtext != "":
+                replace_line("config.py",14,"margen_cargar         ="+ newtext + "\n") #en segundos
+                config.margen_cargar = int(newtext)
+
+
+    else:
+        ###  CONFIGURADOR DE HORARIOS  ###
+        configurador_de_horarios.update(mousex,mousey,pressed)
+        if configurador_de_horarios.quit():
+            viendo_horarios = False
+        ###  CONFIGURADOR DE HORARIOS  ###
+
 
 def get_time_surface():
 

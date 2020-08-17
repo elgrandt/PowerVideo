@@ -36,14 +36,14 @@ def start(graphic):
     thread.start_new_thread(setup,())
 
 def setup():
+    #auth = tweepy.OAuthHandler(config.API_KEY,config.API_SECRET)
 
-    auth = tweepy.OAuthHandler(config.API_KEY,config.API_SECRET)
+    #auth.set_access_token(config.ACCESS_TOKEN,config.ACCESS_TOKEN_SECRET)
 
-    auth.set_access_token(config.ACCESS_TOKEN,config.ACCESS_TOKEN_SECRET)
+    #stream = tweepy.Stream(auth,listener())
 
-    stream = tweepy.Stream(auth,listener())
-
-    stream.filter(track=[ ("@"+config.usuario) ])
+    #stream.filter(track=[ ("@"+config.usuario) ])
+    pass #seguis hace dos horas en la misma linea jaja
 
 def update():
     global tiempo_inicio
@@ -63,6 +63,7 @@ def update():
             hay_video = True
             if my_graphic:
                 my_graphic.call_start_video()
+
     elif hay_video:
         if time.time() - tiempo_inicio > duracion + config.margen_cargar: #si terminamos
             print "Se termino de reproducir el video"
@@ -116,25 +117,34 @@ def llego_tweet(data):
                 url = urlac
                 break
         if url:
-            duration = int(get_video_duration(url))
-            video = {"link":url,"duration":duration,"title":get_video_title(url)}
-            print "Link detectado! :" +  url
-
-            #if is_music(url):
-            print "Se agrega a la cola"
-
-            if texto.find(config.palabra_clave_admin) != -1 and admin:
-                cola_admin_de_videos.append(video)
-            else:
-                cola_de_videos.append(video)
-                if my_graphic:
-                    my_graphic.call_video_added(video)
-            #else:
-            #    print "El link no es una cancion"
+            video_obtained(url,texto)
         else:
-            print "No se detecto ningun link"
+            print "No se detecto ningun link, procedemos a buscar por el buscador de youtube "
+            textosinarroba = removearroba(texto)
+
+            url = SearchAndGetUrl(textosinarroba)
+            if url:
+                video_obtained(url,texto)
+            else:
+                "No se encontro ningun video en la busqueda :("
     else:
         print "El servicio no esta habilitado o no se cumplen los horarios, por lo que no se reproduce el video"
+def video_obtained(url,texto):
+    duration = int(get_video_duration(url))
+    video = {"link":url,"duration":duration,"title":get_video_title(url)}
+    print "Link detectado! :" +  url
+
+    #if is_music(url):
+    print "Se agrega a la cola"
+
+    if texto.find(config.palabra_clave_admin) != -1 and admin:
+        cola_admin_de_videos.append(video)
+    else:
+        cola_de_videos.append(video)
+        if my_graphic:
+            my_graphic.call_video_added(video)
+            #else:
+            #    print "El link no es una cancion"
 def eliminar(id):
     print "Se ha eliminado el video ",id
     del cola_de_videos[id]
@@ -202,7 +212,7 @@ def open_link(url):
     if so == "Windows":
         os.system("chrome "+url)
     elif so == "Linux":
-        os.system("google-chrome "+url)
+        os.system("chromium-browser "+url)
     else:
         os.system("open "+url)
 
@@ -222,7 +232,7 @@ def next_video():
 def close_all():
     so = platform.system()
     if so == "Linux":
-        os.system("pkill chrome")
+        os.system("pkill chromum-browser")
     elif so == "Windows":
         os.system("taskkill /IM chrome.exe")
 
@@ -247,6 +257,37 @@ def abort_video():
     close_all()
     global duracion
     duracion = 0
+
+def SearchAndGetUrl(search_terms):
+    print search_terms
+    yt_service = gys.YouTubeService()
+    query = gys.YouTubeVideoQuery()
+    query.vq = search_terms
+    query.orderby = 'relevance'
+    query.racy = 'include'
+    feed = yt_service.YouTubeQuery(query)
+    return VideoFeedURL(feed)
+
+def VideoFeedURL(feed):
+    for entry in feed.entry:
+        return get_url(entry)
+    return None
+def get_url(entry):
+    return entry.media.player.url
+
+def removearroba(text):
+    startside = 0
+    endside   = len(text)
+    for x in range(len(text)):
+        if text[x] == "@":
+            print x
+            startside = 0
+            while text[x] != " " and x < len(text):
+                x += 1
+            endside = x
+    return text[0:startside] + text[endside:len(text)]
+def main():
+    SearchAndPrint("hello goodbye")
 
 if __name__ == "__main__":
     main()
