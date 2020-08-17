@@ -1,4 +1,4 @@
-API_KEY             = ""
-API_SECRET          = ""
-ACCESS_TOKEN        = ""
-ACCESS_TOKEN_SECRET = ""
+API_KEY             = "0RpfTjIsbem0ZbIm0Cg7pYUgl"
+API_SECRET          = "QQRru7GTMn8bbA4czALeYveCkSPcStHq7ssVHvIZYtVSGObfZV"
+ACCESS_TOKEN        = "2617799809-gvEKSkCEZXtFkiM4R7zvoiyOqycGuLHWbQhRDKd"
+ACCESS_TOKEN_SECRET = "GXYxncy4hrDQoqR1gghF2fc9ZQdaX0IVM0EVh08Ytyn4a"
